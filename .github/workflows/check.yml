@@ -1,0 +1,28 @@
+name: check
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, to catch an API change
+
+jobs:
+  postman-up-to-date:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node postman/generate.mjs
+      - run: git diff --exit-code postman/fxapis.postman_collection.json || (echo "::error::postman/fxapis.postman_collection.json is out of date — run 'node postman/generate.mjs' and commit the result" && exit 1)
+
+  json-and-text:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          for f in tradingview/indicators/*.json tradingview/strategy/*.json n8n/*.json postman/fxapis.postman_collection.json; do
+            echo "checking $f"
+            python3 -m json.tool "$f" > /dev/null
+          done

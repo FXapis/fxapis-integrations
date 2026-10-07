@@ -1,0 +1,136 @@
+{
+  "name": "fxapis: go flat on a schedule",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 21 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "b1c2d3e4-0001-4000-8000-000000000001",
+      "name": "Weekdays 21:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.fxapis.com/v1/accounts/{{ $env.FXAPIS_ACCOUNT_ID }}/positions",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.FXAPIS_API_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1c2d3e4-0002-4000-8000-000000000002",
+      "name": "List positions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0003-4000-8000-000000000003",
+      "name": "One item per position",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.fxapis.com/v1/accounts/{{ $env.FXAPIS_ACCOUNT_ID }}/positions/{{ $json.brokerPositionId }}/close",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.FXAPIS_API_KEY }}"
+            },
+            {
+              "name": "Idempotency-Key",
+              "value": "=close-{{ $json.brokerPositionId }}-{{ $now.toFormat('yyyyLLdd') }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0004-4000-8000-000000000004",
+      "name": "Close position",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Weekdays 21:00 UTC": {
+      "main": [
+        [
+          {
+            "node": "List positions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List positions": {
+      "main": [
+        [
+          {
+            "node": "One item per position",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per position": {
+      "main": [
+        [
+          {
+            "node": "Close position",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

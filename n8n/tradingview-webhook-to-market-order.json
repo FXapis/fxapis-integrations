@@ -1,0 +1,101 @@
+{
+  "name": "TradingView webhook -> fxapis market order",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fxapis-order",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-420, 0],
+      "webhookId": "fxapis-order"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.fxapis.com/v1/accounts/{{ $json.accountId }}/orders/market",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.FXAPIS_API_KEY }}" },
+            { "name": "Idempotency-Key", "value": "={{ $json.id || $execution.id }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ symbol: $json.symbol, side: $json.action, volume: $json.volume || \"0.10\", stopLoss: $json.sl, takeProfit: $json.tp }) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Place market order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-180, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "b1",
+              "leftValue": "={{ $json.data.state }}",
+              "rightValue": "rejected",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Rejected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [60, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, code: \"ORDER_REJECTED\", order: $json.data } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Respond: rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [300, -100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, order: $json.data } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Respond: ok",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [300, 100]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Place market order", "type": "main", "index": 0 }]] },
+    "Place market order": { "main": [[{ "node": "Rejected?", "type": "main", "index": 0 }]] },
+    "Rejected?": {
+      "main": [
+        [{ "node": "Respond: rejected", "type": "main", "index": 0 }],
+        [{ "node": "Respond: ok", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

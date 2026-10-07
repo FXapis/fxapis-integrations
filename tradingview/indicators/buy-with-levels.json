@@ -1,0 +1,1 @@
+{ "action": "buy", "symbol": "{{ticker}}", "volume": "0.20", "sl": "2310.5", "tp": "2385", "id": "{{ticker}}-{{timenow}}" }

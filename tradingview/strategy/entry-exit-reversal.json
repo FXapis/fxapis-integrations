@@ -1,0 +1,7 @@
+{
+  "action": "{{strategy.order.action}}",
+  "symbol": "{{ticker}}",
+  "position": "{{strategy.market_position}}",
+  "prev_position": "{{strategy.prev_market_position}}",
+  "id": "{{strategy.order.id}}-{{timenow}}"
+}
