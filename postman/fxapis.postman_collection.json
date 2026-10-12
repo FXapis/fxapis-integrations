@@ -758,7 +758,7 @@
               ],
               "query": []
             },
-            "description": "A success here means **accepted and waiting**, not filled — the broker answers `10008 PLACED` and the order sits in `accepted` until it triggers.\n\nA limit waits for a better price (buy below the market, sell above); a stop waits for a worse one and is how a breakout is traded (buy above, sell below). The wrong side is refused before anything is sent, with a message naming the order you probably meant — the broker's own `INVALID_PRICE` says nothing about which way round it should have been.\n\n`POST /v1/accounts/{id}/orders/pending`"
+            "description": "A success here means **placed and waiting**, not filled — the broker answers `10008 PLACED` and the order is `working` until it triggers.\n\nA limit waits for a better price (buy below the market, sell above); a stop waits for a worse one and is how a breakout is traded (buy above, sell below). When fxapis has a recent price for the symbol on this account, the wrong side is refused before anything is sent, with a message naming the order you probably meant; otherwise the broker answers with its own `INVALID_PRICE`.\n\n`POST /v1/accounts/{id}/orders/pending`"
           },
           "response": []
         },
@@ -874,7 +874,7 @@
               ],
               "query": []
             },
-            "description": "Confirms the result of every order on this account still in `unknown`, and brings its deals and positions up to date with the broker.\n\nThis happens automatically; call it when you do not want to wait. It is safe to call at any time and safe to call twice — nothing is recorded or settled twice.\n\n`ambiguous` counts orders whose result the broker's records do not settle unambiguously. Those are left in `unknown` on purpose: a wrong guess produces a history that looks settled and is wrong, which is worse than the gap. They need a human.\n\n`skipped` is `no-runtime` when the account is offline: bring it online and call again.\n\n`POST /v1/accounts/{id}/reconcile`"
+            "description": "Confirms the result of every opening order on this account still in `unknown`, and brings its deals and positions up to date with the broker. A close, stop change or cancel in `unknown` is not settled from deal history — its `stateDetail` says to check the position or order at the broker.\n\nThis happens automatically; call it when you do not want to wait. It is safe to call at any time and safe to call twice — nothing is recorded or settled twice.\n\n`ambiguous` counts orders whose result the broker's records do not settle unambiguously. Those are left in `unknown` on purpose: a wrong guess produces a history that looks settled and is wrong, which is worse than the gap. They need a human.\n\n`skipped` is `no-runtime` when the account is offline: bring it online and call again.\n\n`POST /v1/accounts/{id}/reconcile`"
           },
           "response": []
         },
@@ -989,7 +989,7 @@
               ],
               "query": []
             },
-            "description": "The authoritative record of one order: what was asked for, what the broker returned, and its own return code unmodified. Poll this after an `ORDER_UNRESOLVED` response — the order moves out of `unknown` as soon as we have confirmed the result with the broker.\n\n`GET /v1/orders/{id}`"
+            "description": "The authoritative record of one order: what was asked for, what the broker returned, and its own return code unmodified. Poll this after an `ORDER_UNRESOLVED` response — an opening order moves out of `unknown` as soon as we have confirmed the result with the broker; a close, stop change or cancel stays `unknown`, with a `stateDetail` saying what to check at the broker.\n\n`GET /v1/orders/{id}`"
           },
           "response": []
         },
@@ -1414,6 +1414,294 @@
               ]
             },
             "description": "Newest first, kept for 30 days. The first place to look when an alert did not trade: every alert that reached a hook is here — refused, ignored and duplicate ones included — with the reason in words.\n\nA hook takes at most 30 alerts a minute; past that, one row records the refusal and the rest of that minute's alerts are not recorded.\n\n`GET /v1/alert-hooks/{id}/deliveries`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "description": "Event webhooks: a signed POST to your HTTPS endpoint when an order fills or is rejected, a position opens or closes, an account changes state, or a multi-account order finishes. Retried for about 45 hours, with a delivery log and redelivery. The signing secret is returned once, when an endpoint is created or rotated. Needs `webhooks:write`. See the webhooks guide for event types and verifying signatures.",
+      "item": [
+        {
+          "name": "List webhook endpoints",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "Newest first. Deleted endpoints are not listed. Secrets are never returned here.\n\n`GET /v1/webhooks`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create a webhook endpoint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/fxapis/webhooks\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "Events are POSTed to `url` as JSON — `{ id, type, createdAt, data }` — signed in the `fxapis-signature` header with the returned `secret`. **The secret is returned once**, here. Retried for about 45 hours on failure; switched off after 20 failures in a row. Up to 10 endpoints per workspace.\n\n`POST /v1/webhooks`"
+          },
+          "response": []
+        },
+        {
+          "name": "Read one webhook endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "With its health: the last delivery, failures in a row, and why it was switched off if it was.\n\n`GET /v1/webhooks/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Change a webhook endpoint",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/fxapis/webhooks\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "Change its `url`, `events` or `description`. The secret stays the same.\n\n`PATCH /v1/webhooks/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete a webhook endpoint",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "Nothing more is sent to it, including retries in progress. Cannot be undone.\n\n`DELETE /v1/webhooks/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Enable a webhook endpoint",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/enable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "enable"
+              ],
+              "query": []
+            },
+            "description": "Events are sent again from the next one, and the failure count starts from zero. Events already queued to it before it was switched off can be redelivered from the delivery log; events recorded while it was off never reached that log and can't be redelivered. Safe to repeat.\n\n`POST /v1/webhooks/{id}/enable`"
+          },
+          "response": []
+        },
+        {
+          "name": "Disable a webhook endpoint",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "Events stop being sent to it until it is enabled again. Safe to repeat.\n\n`POST /v1/webhooks/{id}/disable`"
+          },
+          "response": []
+        },
+        {
+          "name": "Rotate a webhook endpoint's secret",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/rotate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "rotate"
+              ],
+              "query": []
+            },
+            "description": "Issues a new `secret`, returned **once**. For 24 hours every delivery is signed with both the new and the old secret — two `v1=` values in `fxapis-signature` — so you can deploy the new one without missing an event.\n\n`POST /v1/webhooks/{id}/rotate`"
+          },
+          "response": []
+        },
+        {
+          "name": "Send a test event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "test"
+              ],
+              "query": []
+            },
+            "description": "Sends a `webhook.test` event to this endpoint only, within a few seconds. Check the delivery log for the result.\n\n`POST /v1/webhooks/{id}/test`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delivery attempts to a webhook endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/deliveries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "deliveries"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "succeeded",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "The previous page's `nextCursor`."
+                }
+              ]
+            },
+            "description": "Every attempt, newest first, kept 30 days: what was sent, what your endpoint answered, and how long it took.\n\n`GET /v1/webhooks/{id}/deliveries`"
+          },
+          "response": []
+        },
+        {
+          "name": "Redeliver an event",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/deliveries/{{eventId}}/redeliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "deliveries",
+                "{{eventId}}",
+                "redeliver"
+              ],
+              "query": []
+            },
+            "description": "Queues the event to this endpoint again, with a fresh retry schedule. Same event id, so your deduplication still works.\n\n`POST /v1/webhooks/{id}/deliveries/{eventId}/redeliver`"
           },
           "response": []
         }
@@ -2062,6 +2350,16 @@
     },
     {
       "key": "alertHookId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "webhookId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
       "value": "",
       "type": "string"
     }

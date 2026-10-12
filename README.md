@@ -35,13 +35,13 @@ Point-and-click and low-code ways into **[fxapis](https://fxapis.com)**, the hos
 [`postman/fxapis.postman_collection.json`](postman/fxapis.postman_collection.json) — a Postman
 Collection v2.1 covering **every public endpoint** of the fxapis REST API: connecting accounts,
 bringing them online, market and pending orders, positions, order and deal history,
-multi-account orders (waves), billing, members, API keys and health checks. Generated from the
+multi-account orders (waves), webhook endpoints and their delivery logs, billing, members, API keys and health checks. Generated from the
 live [OpenAPI spec](https://api.fxapis.com/docs/json), with one folder per API section and a
 ready-to-send example body on every request that takes one.
 
 **Import:** Postman → **Import** → select the file. Then open the collection's **Variables** and
 set `apiKey` (your `fx_test_…` or `fx_live_…` key) and the id variables (`accountId`,
-`positionId`, …) as you go. Full setup, and how the pre-request script fills in a fresh
+`positionId`, `webhookId`, …) as you go. Full setup, and how the pre-request script fills in a fresh
 `Idempotency-Key` on every POST/PATCH: [`postman/README.md`](postman/README.md).
 
 Regenerate it any time the API changes: `node postman/generate.mjs` (Node 18+, no dependencies —

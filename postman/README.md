@@ -2,7 +2,7 @@
 
 `fxapis.postman_collection.json` is a Postman Collection (v2.1) covering every public endpoint of
 the fxapis MetaTrader 5 REST API: connecting accounts, bringing them online, market and pending
-orders, positions, order and deal history, multi-account orders (waves), billing, members, API
+orders, positions, order and deal history, multi-account orders (waves), webhook endpoints and their delivery logs, billing, members, API
 keys and health checks. It is generated from the fxapis OpenAPI spec (live at <https://api.fxapis.com/docs/json>), with one folder
 per API section and a ready-to-send example body on every request that takes one.
 
