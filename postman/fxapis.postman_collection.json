@@ -1110,7 +1110,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"accountIds\": [\n    \"{{accountId}}\"\n  ],\n  \"symbol\": \"EURUSD\",\n  \"side\": \"buy\",\n  \"volume\": \"0.01\",\n  \"stopLoss\": \"1.12900\",\n  \"takeProfit\": \"1.14200\",\n  \"comment\": \"signal 42\",\n  \"label\": \"London open — EURUSD long\",\n  \"clientWaveId\": \"signal-42\"\n}",
+              "raw": "{\n  \"accountIds\": [\n    \"{{accountId}}\"\n  ],\n  \"symbol\": \"EURUSD\",\n  \"instrument\": \"XAUUSD\",\n  \"side\": \"buy\",\n  \"volume\": \"0.01\",\n  \"stopLoss\": \"1.12900\",\n  \"takeProfit\": \"1.14200\",\n  \"comment\": \"signal 42\",\n  \"label\": \"London open — EURUSD long\",\n  \"clientWaveId\": \"signal-42\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
