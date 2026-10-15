@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b7a73515-65de-5564-8642-64f4dddeec13",
     "name": "fxapis — MetaTrader 5 REST API",
-    "description": "The fxapis MetaTrader 5 REST API: connect MT5 accounts, place market and pending orders,\nmanage positions, read orders and deals, and place one order across many accounts at once.\n\nFull documentation: https://docs.fxapis.com\n\n**Set `apiKey`** (collection variables) to your key. Test keys (`fx_test_…`) still reach real\nbrokers — connect a broker *demo* MT5 account while you try things out.\n\nEvery POST and PATCH gets an `Idempotency-Key` automatically (see the collection pre-request\nscript): re-sending the same key returns the first answer, a new key means a new order.\n\n---\n\nfxapis is the MetaTrader 5 API. Connect an MT5 account once, then trade it, read its positions\nand its history over plain HTTP. Choose whether each account stays connected or comes online\nonly when you need it.\n\n### Conventions\n\n- Every successful response is `{ \"data\": … }`; every failure is `{ \"error\": { \"code\", \"message\" } }`.\n  Match on `code`, which is stable. `message` is written for a human and may change.\n- Every response carries `requestId`. Quote it in a support request and the entire call can be found.\n- Times are RFC 3339 in UTC. Money and prices are never floats in a request body.\n\n### Bringing an account online is not instant\n\nA broker login takes as long as the broker takes — usually seconds, occasionally much longer.\n`POST /accounts/{id}/warm` brings an account online and returns **202** with a `pollUrl` rather than\nholding the request open, so your client's timeout never becomes a question about someone else's\nnetwork. Poll `GET /accounts/{id}/status` until `state` is `ready`.\n\n### Credentials\n\nThe MT5 password you send is encrypted before it is stored, with a data key that is bound to that\none account, and is never returned by any endpoint, written to the account record or included in\na log line. We cannot show it back to you — if it is lost, it is reset at the broker.",
+    "description": "The fxapis MetaTrader 5 REST API: connect MT5 accounts, place market and pending orders,\nmanage positions, read orders and deals, and place one order across many accounts at once.\n\nFull documentation: https://docs.fxapis.com\n\n**Set `apiKey`** (collection variables) to your key. Test keys (`fx_test_…`) still reach real\nbrokers — connect a broker *demo* MT5 account while you try things out.\n\n**Set `adminKey`** to an admin key (`fx_admin_…`) to use the *API keys* folder. Only the workspace\nowner can make one, in the console; it manages keys and can do nothing else.\n\nEvery POST and PATCH gets an `Idempotency-Key` automatically (see the collection pre-request\nscript): re-sending the same key returns the first answer, a new key means a new order.\n\n---\n\nfxapis is the MetaTrader 5 API. Connect an MT5 account once, then trade it, read its positions\nand its history over plain HTTP. Choose whether each account stays connected or comes online\nonly when you need it.\n\n### Conventions\n\n- Every successful response is `{ \"data\": … }`; every failure is `{ \"error\": { \"code\", \"message\" } }`.\n  Match on `code`, which is stable. `message` is written for a human and may change.\n- Every response carries `requestId`. Quote it in a support request and the entire call can be found.\n- Times are RFC 3339 in UTC. Money and prices are never floats in a request body.\n\n### Bringing an account online is not instant\n\nA broker login takes as long as the broker takes — usually seconds, occasionally much longer.\n`POST /accounts/{id}/warm` brings an account online and returns **202** with a `pollUrl` rather than\nholding the request open, so your client's timeout never becomes a question about someone else's\nnetwork. Poll `GET /accounts/{id}/status` until `state` is `ready`.\n\n### Credentials\n\nThe MT5 password you send is encrypted before it is stored, with a data key that is bound to that\none account, and is never returned by any endpoint, written to the account record or included in\na log line. We cannot show it back to you — if it is lost, it is reset at the broker.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -2048,193 +2048,18 @@
       ]
     },
     {
-      "name": "Members",
-      "description": "Who is in this workspace, who has been invited, and what each may do. Managed by a signed-in owner or admin from the dashboard; API keys, `admin` included, are refused.",
-      "item": [
-        {
-          "name": "List this workspace's members",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/members",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members"
-              ],
-              "query": []
-            },
-            "description": "Everyone in this workspace, with their role and when they joined. Removed members are not listed.\n\n`GET /v1/members`"
-          },
-          "response": []
-        },
-        {
-          "name": "Change a member's role",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"role\": \"admin\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/v1/members/{{memberId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members",
-                "{{memberId}}"
-              ],
-              "query": []
-            },
-            "description": "Only the owner changes roles, and the owner's own role cannot be changed here. Takes effect on the member's next request.\n\n`PATCH /v1/members/{id}`"
-          },
-          "response": []
-        },
-        {
-          "name": "Remove a member",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/members/{{memberId}}/remove",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members",
-                "{{memberId}}",
-                "remove"
-              ],
-              "query": []
-            },
-            "description": "Signs them out everywhere at once and deletes their password. What they did stays attributed to them. Keys they created belong to the workspace and are not revoked — revoke them separately if they should stop too.\n\nThe owner cannot be removed. An admin may remove plain members only.\n\n`POST /v1/members/{id}/remove`"
-          },
-          "response": []
-        },
-        {
-          "name": "List open invitations",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/members/invitations",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members",
-                "invitations"
-              ],
-              "query": []
-            },
-            "description": "Unaccepted, unrevoked and unexpired.\n\n`GET /v1/members/invitations`"
-          },
-          "response": []
-        },
-        {
-          "name": "Invite someone",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"someone@example.com\",\n  \"role\": \"admin\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/v1/members/invitations",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members",
-                "invitations"
-              ],
-              "query": []
-            },
-            "description": "Returns a link to send them; there is no email yet. An address that already has an open invitation gets that invitation back — the same link, not a new one — with `handedBack: true`. To change the role on it, revoke it and invite again.\n\nThe owner may invite admins and members; an admin may invite members.\n\n`POST /v1/members/invitations`"
-          },
-          "response": []
-        },
-        {
-          "name": "Withdraw an invitation",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/members/invitations/{{invitationId}}/revoke",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members",
-                "invitations",
-                "{{invitationId}}",
-                "revoke"
-              ],
-              "query": []
-            },
-            "description": "Its link stops working immediately. Safe to repeat.\n\n`POST /v1/members/invitations/{id}/revoke`"
-          },
-          "response": []
-        },
-        {
-          "name": "Send an invitation again",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/members/invitations/{{invitationId}}/resend",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "members",
-                "invitations",
-                "{{invitationId}}",
-                "resend"
-              ],
-              "query": []
-            },
-            "description": "The same link, emailed again — for one that was not received. At most once a minute per invitation.\n\n`POST /v1/members/invitations/{id}/resend`"
-          },
-          "response": []
-        }
-      ]
-    },
-    {
       "name": "API keys",
-      "description": "Issuing, renaming, re-scoping and revoking this workspace's keys. A key's secret is returned once, by the request that creates it, and never again. Needs `keys:manage`.",
+      "description": "Issuing, renaming, re-scoping and revoking this workspace's ordinary keys. Needs an admin key (`fx_admin_…`) — or a signed-in owner or admin in the console; ordinary keys are refused. A key's secret is returned once, by the request that creates it, and never again.\n\nThis folder sends `{{adminKey}}` (an `fx_admin_…` key), not `{{apiKey}}`.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminKey}}",
+            "type": "string"
+          }
+        ]
+      },
       "item": [
         {
           "name": "List this workspace's keys",
@@ -2252,7 +2077,7 @@
               ],
               "query": []
             },
-            "description": "Newest first, revoked keys included — a revocation is history worth seeing.\n\n`GET /v1/api-keys`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nNewest first, revoked keys included — a revocation is history worth seeing.\n\n`GET /v1/api-keys`"
           },
           "response": []
         },
@@ -2286,7 +2111,7 @@
               ],
               "query": []
             },
-            "description": "Returns the key in `key`, **once**. We cannot show a key again after creation, or recover it. A lost key is replaced, not recovered.\n\n`admin` and `keys:manage` cannot be granted here. Issue narrow keys: an integration that only reads positions should hold `trading:read` and nothing else.\n\n`POST /v1/api-keys`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nReturns the key in `key`, **once**. We cannot show a key again after creation, or recover it. A lost key is replaced, not recovered.\n\n`admin`, `keys:manage`, `members:manage` and `billing:manage` cannot be granted here, not even by an admin key. Issue narrow keys: an integration that only reads positions should hold `trading:read` and nothing else.\n\n`POST /v1/api-keys`"
           },
           "response": []
         },
@@ -2307,7 +2132,7 @@
               ],
               "query": []
             },
-            "description": "A key's name, scopes, environment label, hint and when it was last used — never the key itself, which is shown only once, when it is created.\n\n`GET /v1/api-keys/{id}`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nA key's name, scopes, environment label, hint and when it was last used — never the key itself, which is shown only once, when it is created.\n\n`GET /v1/api-keys/{id}`"
           },
           "response": []
         },
@@ -2342,7 +2167,7 @@
               ],
               "query": []
             },
-            "description": "New scopes replace the old ones and apply from the key's next request. The key itself does not change, so nothing using it needs redeploying. A revoked key cannot be changed.\n\n`PATCH /v1/api-keys/{id}`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nNew scopes replace the old ones and apply from the key's next request. The key itself does not change, so nothing using it needs redeploying. A revoked key cannot be changed.\n\n`PATCH /v1/api-keys/{id}`"
           },
           "response": []
         },
@@ -2364,7 +2189,7 @@
               ],
               "query": []
             },
-            "description": "Refused from its very next request — there is no cache to wait for. Revoking an already-revoked key succeeds and changes nothing, so a retried revoke is safe.\n\nA key may revoke itself. Anything it was doing stops with it.\n\n`POST /v1/api-keys/{id}/revoke`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nRefused from its very next request — there is no cache to wait for. Revoking an already-revoked key succeeds and changes nothing, so a retried revoke is safe.\n\n`POST /v1/api-keys/{id}/revoke`"
           },
           "response": []
         }
@@ -2468,6 +2293,11 @@
       "type": "string"
     },
     {
+      "key": "adminKey",
+      "value": "fx_admin_replace_me",
+      "type": "string"
+    },
+    {
       "key": "accountId",
       "value": "",
       "type": "string"
@@ -2489,16 +2319,6 @@
     },
     {
       "key": "keyId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "memberId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "invitationId",
       "value": "",
       "type": "string"
     },

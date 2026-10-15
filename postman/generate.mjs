@@ -36,8 +36,6 @@ const ID_VARIABLE_BY_SEGMENT = {
   orders: "orderId",
   "execution-waves": "waveId",
   "api-keys": "keyId",
-  members: "memberId",
-  invitations: "invitationId",
   invoices: "invoiceId",
   "alert-hooks": "alertHookId",
   webhooks: "webhookId",
@@ -65,6 +63,8 @@ function operations() {
     for (const method of METHODS) {
       const op = item[method];
       if (!op) continue;
+      // Console-only (members, invitations): every API key is refused there.
+      if (op["x-fxapis-audience"] === "console") continue;
       const parameters = mergeParameters(item.parameters, op.parameters);
       ops.push({ path, method, op, parameters });
     }
@@ -247,10 +247,13 @@ const ops = operations();
 const tagOrder = (spec.tags ?? []).map((t) => t.name);
 const tagDescriptions = Object.fromEntries((spec.tags ?? []).map((t) => [t.name, t.description ?? ""]));
 const byTag = new Map(tagOrder.map((t) => [t, []]));
+/** Per folder: how many of its requests need an admin key. */
+const adminCount = new Map();
 for (const entry of ops) {
   const tag = entry.op.tags?.[0] ?? "Other";
   if (!byTag.has(tag)) byTag.set(tag, []);
   byTag.get(tag).push(buildItem(entry));
+  if (entry.op["x-fxapis-audience"] === "admin") adminCount.set(tag, (adminCount.get(tag) ?? 0) + 1);
 }
 
 const folders = [];
@@ -258,6 +261,13 @@ for (const [tag, items] of byTag) {
   if (!items.length) continue;
   const folder = { name: tag };
   if (tagDescriptions[tag]) folder.description = tagDescriptions[tag];
+  const admin = adminCount.get(tag) ?? 0;
+  if (admin > 0) {
+    // Folder-level auth: these requests send the admin key, every other folder the ordinary one.
+    if (admin !== items.length) throw new Error(`Folder ${tag} mixes admin-key and ordinary requests`);
+    folder.auth = { type: "bearer", bearer: [{ key: "token", value: "{{adminKey}}", type: "string" }] };
+    folder.description = `${folder.description ?? ""}\n\nThis folder sends \`{{adminKey}}\` (an \`fx_admin_…\` key), not \`{{apiKey}}\`.`.trim();
+  }
   folder.item = items;
   folders.push(folder);
 }
@@ -270,6 +280,9 @@ const intro = [
   "",
   "**Set `apiKey`** (collection variables) to your key. Test keys (`fx_test_…`) still reach real",
   "brokers — connect a broker *demo* MT5 account while you try things out.",
+  "",
+  "**Set `adminKey`** to an admin key (`fx_admin_…`) to use the *API keys* folder. Only the workspace",
+  "owner can make one, in the console; it manages keys and can do nothing else.",
   "",
   "Every POST and PATCH gets an `Idempotency-Key` automatically (see the collection pre-request",
   "script): re-sending the same key returns the first answer, a new key means a new order.",
@@ -296,13 +309,12 @@ const prerequest = [
 const variable = [
   { key: "baseUrl", value: spec.servers?.[0]?.url ?? "https://api.fxapis.com", type: "string" },
   { key: "apiKey", value: "fx_test_replace_me", type: "string" },
+  { key: "adminKey", value: "fx_admin_replace_me", type: "string" },
   { key: "accountId", value: "", type: "string" },
   { key: "positionId", value: "", type: "string" },
   { key: "orderId", value: "", type: "string" },
   { key: "waveId", value: "", type: "string" },
   { key: "keyId", value: "", type: "string" },
-  { key: "memberId", value: "", type: "string" },
-  { key: "invitationId", value: "", type: "string" },
   { key: "invoiceId", value: "", type: "string" },
   { key: "alertHookId", value: "", type: "string" },
   { key: "webhookId", value: "", type: "string" },

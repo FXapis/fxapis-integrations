@@ -2,8 +2,8 @@
 
 `fxapis.postman_collection.json` is a Postman Collection (v2.1) covering every public endpoint of
 the fxapis MetaTrader 5 REST API: connecting accounts, bringing them online, market and pending
-orders, positions, order and deal history, multi-account orders (waves), webhook endpoints and their delivery logs, billing, members, API
-keys and health checks. It is generated from the fxapis OpenAPI spec (live at <https://api.fxapis.com/docs/json>), with one folder
+orders, positions, order and deal history, multi-account orders (waves), billing, API keys and
+health checks. It is generated from the fxapis OpenAPI spec (live at <https://api.fxapis.com/docs/json>), with one folder
 per API section and a ready-to-send example body on every request that takes one.
 
 Full documentation: https://docs.fxapis.com
@@ -18,11 +18,17 @@ published, a "Run in Postman" button will do the same in one click.)
 Open the collection → **Variables** and set:
 
 - `apiKey`: your fxapis key (`fx_test_…` or `fx_live_…`). Every request sends it as
-  `Authorization: Bearer {{apiKey}}`, except `/healthz` and `/readyz`, which need no key.
+  `Authorization: Bearer {{apiKey}}`, except `/healthz` and `/readyz`, which need no key, and the
+  **API keys** folder, which sends `adminKey`.
+- `adminKey`: an admin key (`fx_admin_…`), used only by the **API keys** folder. The workspace owner
+  makes one in the console; it manages the workspace's API keys and can do nothing else.
 - `baseUrl`: defaults to `https://api.fxapis.com`. Change it only if you are pointed elsewhere.
-- `accountId`, `positionId`, `orderId`, `waveId`, `keyId`, `memberId`, `invitationId`,
-  `invoiceId`: fill these in from earlier responses (for example, `accountId` from
-  **Connect an MT5 account**) before calling the endpoints that use them.
+- `accountId`, `positionId`, `orderId`, `waveId`, `keyId`, `invoiceId`: fill these in from
+  earlier responses (for example, `accountId` from **Connect an MT5 account**) before calling
+  the endpoints that use them.
+
+Member and invitation endpoints are not in the collection: they are console-only and refuse every
+API key. They are documented, with that note, in the [API reference](https://docs.fxapis.com/api-reference).
 
 **Test keys still reach real brokers.** A test key does not simulate trading: orders go to the
 broker behind the connected MT5 account. Connect a broker *demo* MT5 account while you try
