@@ -16,6 +16,8 @@ the live API reference (`node postman/generate.mjs`), so it follows the API.
 
 - **Postman:** the event log (`GET /v1/events`, `GET /v1/events/{id}`, with an `eventId` variable),
   replay to a webhook endpoint, and paged delivery logs with each attempt's request and response.
+- **Postman:** multi-account orders can name an `instrument` instead of a broker symbol, and API keys
+  can carry limits (`limits` on create and update).
 
 ## 2026-10-08
 
