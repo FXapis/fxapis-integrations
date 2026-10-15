@@ -1421,7 +1421,7 @@
     },
     {
       "name": "Webhooks",
-      "description": "Event webhooks: a signed POST to your HTTPS endpoint when an order fills or is rejected, a position opens or closes, an account changes state, or a multi-account order finishes. Retried for about 45 hours, with a delivery log and redelivery. The signing secret is returned once, when an endpoint is created or rotated. Needs `webhooks:write`. See the webhooks guide for event types and verifying signatures.",
+      "description": "Event webhooks: a signed POST to your HTTPS endpoint when an order fills or is rejected, a position opens or closes, an account changes state, or a multi-account order finishes. Retried over about 44.6 hours (jittered), with a delivery log and redelivery. The signing secret is returned once, when an endpoint is created or rotated. Needs `webhooks:write`. See the webhooks guide for event types and verifying signatures.",
       "item": [
         {
           "name": "List webhook endpoints",
@@ -1473,7 +1473,7 @@
               ],
               "query": []
             },
-            "description": "Events are POSTed to `url` as JSON — `{ id, type, createdAt, data }` — signed in the `fxapis-signature` header with the returned `secret`. **The secret is returned once**, here. Retried for about 45 hours on failure; switched off after 20 failures in a row. Up to 10 endpoints per workspace.\n\n`POST /v1/webhooks`"
+            "description": "Events are POSTed to `url` as JSON — `{ id, type, createdAt, data }` — signed in the `fxapis-signature` header with the returned `secret`. **The secret is returned once**, here. Retried over about 44.6 hours on failure (jittered; the last wait alone can run up to about 28.8 hours); switched off after 20 failures in a row. Up to 10 endpoints per workspace.\n\n`POST /v1/webhooks`"
           },
           "response": []
         },
@@ -1572,7 +1572,7 @@
               ],
               "query": []
             },
-            "description": "Events are sent again from the next one, and the failure count starts from zero. Events already queued to it before it was switched off can be redelivered from the delivery log; events recorded while it was off never reached that log and can't be redelivered. Safe to repeat.\n\n`POST /v1/webhooks/{id}/enable`"
+            "description": "Events are sent again from the next one, and the failure count starts from zero. Deliveries that were waiting when it was switched off resume on their schedule. Events recorded while it was off are not sent automatically — replay them (`POST /v1/webhooks/{id}/replay`, failed-only by default), or read them from `GET /v1/events`. Safe to repeat.\n\n`POST /v1/webhooks/{id}/enable`"
           },
           "response": []
         },
@@ -1594,7 +1594,7 @@
               ],
               "query": []
             },
-            "description": "Events stop being sent to it until it is enabled again. Safe to repeat.\n\n`POST /v1/webhooks/{id}/disable`"
+            "description": "Events stop being sent to it until it is enabled again. Deliveries already waiting are kept, not dropped; events recorded meanwhile can be replayed once it is back. Safe to repeat.\n\n`POST /v1/webhooks/{id}/disable`"
           },
           "response": []
         },
@@ -1665,6 +1665,11 @@
                   "disabled": true
                 },
                 {
+                  "key": "eventType",
+                  "value": "order.filled",
+                  "disabled": true
+                },
+                {
                   "key": "limit",
                   "value": "50",
                   "disabled": true
@@ -1678,6 +1683,29 @@
               ]
             },
             "description": "Every attempt, newest first, kept 30 days: what was sent, what your endpoint answered, and how long it took.\n\n`GET /v1/webhooks/{id}/deliveries`"
+          },
+          "response": []
+        },
+        {
+          "name": "One delivery attempt, in full",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/deliveries/{{deliveryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "deliveries",
+                "{{deliveryId}}"
+              ],
+              "query": []
+            },
+            "description": "The request as sent — URL, headers (signature included) and exact body — and what your endpoint answered: status, headers and the first 4 KB of the body. Latency is `durationMs`. Kept 30 days on every plan, even once the event itself has aged out of your event history.\n\n`GET /v1/webhooks/{id}/deliveries/{deliveryId}`"
           },
           "response": []
         },
@@ -1702,6 +1730,137 @@
               "query": []
             },
             "description": "Queues the event to this endpoint again, with a fresh retry schedule. Same event id, so your deduplication still works.\n\n`POST /v1/webhooks/{id}/deliveries/{eventId}/redeliver`"
+          },
+          "response": []
+        },
+        {
+          "name": "Replay events to an endpoint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"since\": \"2026-01-01T00:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/{{webhookId}}/replay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "replay"
+              ],
+              "query": []
+            },
+            "description": "Queues this window's events, of the types this endpoint receives, oldest first, with their original ids. By default (`include: \"failed\"`) only events it did not receive — deliveries it gave up on, and events recorded while it was switched off — so repeating a call sends nothing twice. `include: \"all\"` also re-sends what it already received: deduplicate on `id` first. Types follow the endpoint's events now: if you added a type later, its events recorded since the endpoint was created are sent too — never sent to it before, but older than what it has received. Up to 10,000 per call; `nextSince` says where to continue. Events written at one exact moment are never split across calls, so in the rare case of more than that at one moment, a call queues them all. For code that catches up by itself, read `GET /v1/events?after=<last listed id>` instead.\n\n`POST /v1/webhooks/{id}/replay`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "description": "The event log: every event in this workspace, exactly as webhooks deliver it, kept 7, 30 or 90 days by plan. To catch up after downtime, ask for everything `after` the last event you read from this list (not the last webhook: webhooks arrive out of order). Needs `history:read`, on plans with webhooks.",
+      "item": [
+        {
+          "name": "List events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "",
+                  "disabled": true,
+                  "description": "An event id: return the events after it, oldest first. To catch up, pass the id of the last event of a list page you processed — never a webhook's id, since webhooks can arrive out of order."
+                },
+                {
+                  "key": "since",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Events at or after this time."
+                },
+                {
+                  "key": "until",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Events before this time."
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Only these types: repeat it (`type=a&type=b`) or separate with commas."
+                },
+                {
+                  "key": "account_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Events about this MT5 account, including multi-account orders with a leg on it."
+                },
+                {
+                  "key": "delivery_status",
+                  "value": "failed",
+                  "disabled": true,
+                  "description": "`failed`: events at least one of your endpoints has not received — given up on, or still retrying after a failure."
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Without `after`: the previous page's `nextCursor`."
+                }
+              ]
+            },
+            "description": "Everything that happened in this workspace while its plan included webhooks, exactly as webhooks deliver it, kept 7, 30 or 90 days by plan — whether or not a webhook endpoint was listening. Events from a time the plan did not include webhooks are not recorded, so they are not listed.\n\nAn event appears in the list a few seconds after it happens, and only once every earlier event has, so a page never moves past one that has not appeared yet — except an event stuck more than 15 minutes before it could be prepared for sending (rare; we alert on it), which stops holding the list back and so, once it does appear, may fall behind an `after=` loop that already paged past its moment.\n\n**Catching up after downtime:** keep an anchor id taken only from the last item of a list page you processed — never from a webhook: webhooks do not arrive in list order (sends run in parallel and retries are spread out), so a webhook's id can be newer than an event still retrying. On start, call `?after=<anchor>` and keep calling with the last id of each page until a page comes back empty. Then check `delivery_status=failed`, or run a replay, for anything given up on. Deduplicate on `id`. With `after`, events come oldest first. Without it, newest first, paged by `nextCursor`. An `after` id older than your plan keeps answers `400 EVENT_NOT_IN_HISTORY`: resume from `since` instead.\n\n`GET /v1/events`"
+          },
+          "response": []
+        },
+        {
+          "name": "Read one event",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/events/{{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "events",
+                "{{eventId}}"
+              ],
+              "query": []
+            },
+            "description": "Exactly as a webhook delivery carried it.\n\n`GET /v1/events/{id}`"
           },
           "response": []
         }
@@ -2355,6 +2514,11 @@
     },
     {
       "key": "webhookId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
       "value": "",
       "type": "string"
     },
