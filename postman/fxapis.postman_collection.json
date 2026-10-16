@@ -81,7 +81,7 @@
               ],
               "query": []
             },
-            "description": "One connected account: its login, server, label, mode, current state and when it last changed. The password is never included. Another workspace's account is 404.\n\n`GET /v1/accounts/{id}`"
+            "description": "One connected account: its login, server, label, mode, current state and when it last changed. The password is never included. Another workspace's account is 404. Balance, equity and margin are the last read from the terminal (`figuresObservedAt`); `GET /v1/accounts/{id}/figures?fresh=true` asks it now.\n\n`GET /v1/accounts/{id}`"
           },
           "response": []
         },
@@ -132,6 +132,35 @@
               "query": []
             },
             "description": "The endpoint to poll after bringing an account online. Cheap enough to call every second or two; `state` reaches `ready` when the account is logged in and ready to trade.\n\n`GET /v1/accounts/{id}/status`"
+          },
+          "response": []
+        },
+        {
+          "name": "Balance, equity and margin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/accounts/{{accountId}}/figures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "accounts",
+                "{{accountId}}",
+                "figures"
+              ],
+              "query": [
+                {
+                  "key": "fresh",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "`true` asks the account's terminal now (the account must be online), charged to the account's live budget when the terminal is asked. Without it, the last read."
+                }
+              ]
+            },
+            "description": "The account's money as its MetaTrader terminal reports it: balance, equity, margin, free margin, margin level, credit and open profit, as decimal strings in the account's currency.\n\nWithout `fresh`, the last read: taken every 15 seconds while the account is online, with `observedAt` saying when. With `fresh=true`, the terminal is asked now — the account must be `ready` (409 `ACCOUNT_NOT_READY` otherwise, including while it is `executing` an order or `degraded`); a terminal still on an older worker answers 501 `CAPABILITY_UNAVAILABLE` instead, rare in practice. Callers within the same second share one read, and only a read that reaches the terminal is charged to the account's live budget (300 a minute + 50 across every caller; 429 `RATE_LIMITED` with `retry-after` past it).\n\n`GET /v1/accounts/{id}/figures`"
           },
           "response": []
         },
@@ -904,6 +933,47 @@
               ]
             },
             "description": "What we last saw, with `observedAt` saying when. The broker is authoritative and this is a snapshot, not a ledger — `observedAt` is here so you can tell a current view from a stale one rather than having to assume.\n\nOpen positions only, unless `includeClosed=true`.\n\n`GET /v1/accounts/{id}/positions`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Market data",
+      "description": "Prices from each account's own broker, read live from its terminal. Each broker quotes differently, and these are the prices that account trades at.",
+      "item": [
+        {
+          "name": "Live prices from the account's broker",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/accounts/{{accountId}}/quotes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "accounts",
+                "{{accountId}}",
+                "quotes"
+              ],
+              "query": [
+                {
+                  "key": "symbols",
+                  "value": "EURUSD,XAUUSD",
+                  "disabled": true,
+                  "description": "Broker symbols, comma-separated, exactly as this broker names them: `EURUSD.a,XAUUSD.a`."
+                },
+                {
+                  "key": "instruments",
+                  "value": "XAUUSD,US30",
+                  "disabled": true,
+                  "description": "Instruments (`GET /v1/instruments`), comma-separated; each is quoted as this account's own symbol for it."
+                }
+              ]
+            },
+            "description": "Bid, ask and spread for up to 20 symbols or instruments, read from the account's own MetaTrader terminal — the prices this account trades at. The account must be online (409 `ACCOUNT_NOT_READY` otherwise).\n\nEvery quote carries `time`, `brokerTime` and `ageMs`; judge freshness from them. `stale` is true only while the market is open and the last tick is over 60 seconds old; a closed market answers its last price with `marketOpen: false`. A symbol the broker does not have answers `status: unknown_symbol` in its place. Poll this; there is no stream. Calls that reach the terminal are charged to the account's live budget (300 a minute + 50, across every caller; cached answers are free), and past it this answers 429 `RATE_LIMITED` with `retry-after`. An account whose terminal is still on an older worker — rare — answers 501 `CAPABILITY_UNAVAILABLE` instead.\n\n`GET /v1/accounts/{id}/quotes`"
           },
           "response": []
         }
