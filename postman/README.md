@@ -2,8 +2,8 @@
 
 `fxapis.postman_collection.json` is a Postman Collection (v2.1) covering every public endpoint of
 the fxapis MetaTrader 5 REST API: connecting accounts, bringing them online, market and pending
-orders, positions, order and deal history, multi-account orders (waves), billing, API keys and
-health checks. It is generated from the fxapis OpenAPI spec (live at <https://api.fxapis.com/docs/json>), with one folder
+orders, positions, order and deal history, multi-account orders (waves), copy trading, billing,
+API keys and health checks. It is generated from the fxapis OpenAPI spec (live at <https://api.fxapis.com/docs/json>), with one folder
 per API section and a ready-to-send example body on every request that takes one.
 
 Full documentation: https://docs.fxapis.com
@@ -23,12 +23,18 @@ Open the collection → **Variables** and set:
 - `adminKey`: an admin key (`fx_admin_…`), used only by the **API keys** folder. The workspace owner
   makes one in the console; it manages the workspace's API keys and can do nothing else.
 - `baseUrl`: defaults to `https://api.fxapis.com`. Change it only if you are pointed elsewhere.
-- `accountId`, `positionId`, `orderId`, `waveId`, `keyId`, `invoiceId`: fill these in from
+- `accountId`, `positionId`, `orderId`, `waveId`, `keyId`, `invoiceId`, `strategyId`,
+  `subscriptionId`: fill these in from
   earlier responses (for example, `accountId` from **Connect an MT5 account**) before calling
   the endpoints that use them.
 
 Member and invitation endpoints are not in the collection: they are console-only and refuse every
 API key. They are documented, with that note, in the [API reference](https://docs.fxapis.com/api-reference).
+
+**Copy trading is paused until scheduled maintenance.** The **Copy trading** folder's requests
+that start copying (making a strategy, subscribing, resuming a strategy or subscription, and reset)
+answer `503 COPY_TRADING_PAUSED` until then; reads, settings, pausing and deleting work.
+**Whether copy trading is running** (`GET /v1/copy/status`) says whether it is paused.
 
 **Test keys still reach real brokers.** A test key does not simulate trading: orders go to the
 broker behind the connected MT5 account. Connect a broker *demo* MT5 account while you try

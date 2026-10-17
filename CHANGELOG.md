@@ -5,6 +5,16 @@ the live API reference (`node postman/generate.mjs`), so it follows the API.
 
 ## 2026-10-16
 
+- **Postman: copy trading.** A new *Copy trading* folder (14 requests) covers `/v1/copy`: whether
+  copy trading is running (`GET /v1/copy/status`); strategies (list, make an account a strategy,
+  fetch, rename/pause/resume, archive); subscriptions (list, subscribe an account, fetch, change
+  settings or status, delete, reset a stopped one, list its links); and copy executions. New
+  `strategyId` and `subscriptionId` collection variables. Copying is paused until scheduled
+  maintenance: requests that start copying answer `503 COPY_TRADING_PAUSED`, and
+  `GET /v1/copy/status` says so.
+- **Postman:** *Change how eagerly the account stays connected* says a strategy's account must stay
+  `always_on` (`409 ACCOUNT_IS_MASTER`), and creating or updating an API key says when a console
+  session must confirm it's you first (`403 STEP_UP_REQUIRED`).
 - **Postman: balance, equity and margin.** *Accounts* gains *Balance, equity and margin*
   (`GET /v1/accounts/{id}/figures`): balance, equity, margin, free margin, margin level, credit and
   open profit as decimal strings. Without `fresh`, the last read from the terminal; `fresh=true`

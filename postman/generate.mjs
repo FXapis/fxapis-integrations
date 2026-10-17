@@ -40,6 +40,8 @@ const ID_VARIABLE_BY_SEGMENT = {
   "alert-hooks": "alertHookId",
   webhooks: "webhookId",
   events: "eventId",
+  strategies: "strategyId",
+  subscriptions: "subscriptionId",
 };
 
 const IDEMPOTENCY_DESCRIPTION =
@@ -319,7 +321,8 @@ const variable = [
   { key: "alertHookId", value: "", type: "string" },
   { key: "webhookId", value: "", type: "string" },
   { key: "eventId", value: "", type: "string" },
-  { key: "eventId", value: "", type: "string" },
+  { key: "strategyId", value: "", type: "string" },
+  { key: "subscriptionId", value: "", type: "string" },
 ];
 
 const collection = {

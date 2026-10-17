@@ -35,7 +35,7 @@ Point-and-click and low-code ways into **[fxapis](https://fxapis.com)**, the hos
 [`postman/fxapis.postman_collection.json`](postman/fxapis.postman_collection.json) — a Postman
 Collection v2.1 covering **every public endpoint** of the fxapis REST API: connecting accounts,
 bringing them online, balance, equity and margin, live prices, market and pending orders, positions, order and deal history,
-multi-account orders (waves), webhook endpoints and their delivery logs, billing, API keys and health checks. Generated from the
+multi-account orders (waves), copy trading, webhook endpoints and their delivery logs, billing, API keys and health checks. Generated from the
 live [OpenAPI spec](https://api.fxapis.com/docs/json), with one folder per API section and a
 ready-to-send example body on every request that takes one.
 

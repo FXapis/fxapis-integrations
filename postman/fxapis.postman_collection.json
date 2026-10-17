@@ -457,7 +457,7 @@
               ],
               "query": []
             },
-            "description": "`always_on`: stays connected. `warm_on_demand`: connects on demand (the first order, or a prepare) and goes offline by itself when idle. `cold`: connects only when you ask.\n\nTakes effect the next time the account is brought online, so the call stays fast and predictable. Switch to `always_on` and then bring the account online to apply it now.\n\n`POST /v1/accounts/{id}/mode`"
+            "description": "`always_on`: stays connected. `warm_on_demand`: connects on demand (the first order, or a prepare) and goes offline by itself when idle. `cold`: connects only when you ask.\n\nTakes effect the next time the account is brought online, so the call stays fast and predictable. Switch to `always_on` and then bring the account online to apply it now.\n\nA copy-trading strategy's account must stay `always_on`: moving it to another mode is refused with 409 `ACCOUNT_IS_MASTER` until the strategy is archived.\n\n`POST /v1/accounts/{id}/mode`"
           },
           "response": []
         }
@@ -1242,6 +1242,465 @@
               "query": []
             },
             "description": "Only while nothing has been sent. Once orders are going out there is no cancelling them — `cancelled` would claim nothing was sent, and that is exactly the promise we can no longer make.\n\n`POST /v1/execution-waves/{id}/cancel`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Copy trading",
+      "description": "Managed copy trading: mark an always-on account as a strategy, subscribe other accounts in this workspace, and fxapis repeats the master's opens, closes, partial closes and stop moves on every follower, sized for each, with no code on your side. Every decision is an execution with its reason. Hedging accounts only.",
+      "item": [
+        {
+          "name": "Whether copy trading is running",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "status"
+              ],
+              "query": []
+            },
+            "description": "`paused` true while copy trading is paused on this server (before scheduled maintenance): strategies and subscriptions can be read, paused and deleted, but nothing that starts copying is taken (503 `COPY_TRADING_PAUSED`), nothing is copied, and no follower is billed. `message` says so in a sentence, or is null.\n\n`GET /v1/copy/status`"
+          },
+          "response": []
+        },
+        {
+          "name": "List strategies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/strategies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "strategies"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Default: `100`."
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "The previous page's `nextCursor`."
+                }
+              ]
+            },
+            "description": "This workspace's copy-trading strategies, newest first, archived ones included. Paginated by cursor.\n\n`GET /v1/copy/strategies`"
+          },
+          "response": []
+        },
+        {
+          "name": "Make an account a strategy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"name\": \"Gold scalper\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/strategies",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "strategies"
+              ],
+              "query": []
+            },
+            "description": "Marks an account as a strategy: its trades are copied to every account that subscribes to it. The account must be `always_on` — a master traded by hand never sends fxapis an order, so an idle terminal would be stopped — and a hedging account, and must not follow a strategy itself. One live strategy per account. A member confirms it is them (step-up). While copy trading is paused on this server (`GET /v1/copy/status`), this answers 503 `COPY_TRADING_PAUSED`.\n\n`POST /v1/copy/strategies`"
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch a strategy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/strategies/{{strategyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "strategies",
+                "{{strategyId}}"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/copy/strategies/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Rename, pause or resume a strategy",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/strategies/{{strategyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "strategies",
+                "{{strategyId}}"
+              ],
+              "query": []
+            },
+            "description": "A paused strategy's master is not watched, and nothing is copied — closes included — until it is resumed; the drift check then puts followers right. Resuming asks a member to confirm it is them (step-up), needs a plan with copy trading, and is refused as a whole (403 `KEY_LIMIT_EXCEEDED`, naming the account) when the caller may not open on one of the active followers — a connected app's consent list, a key's `accountIds`, or a key with limits and someone else's subscription. Pause that subscription first. Renaming and pausing always work; resuming is refused while copy trading is paused on this server (503 `COPY_TRADING_PAUSED`, `GET /v1/copy/status`).\n\n`PATCH /v1/copy/strategies/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Archive a strategy",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/strategies/{{strategyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "strategies",
+                "{{strategyId}}"
+              ],
+              "query": []
+            },
+            "description": "Only once no subscription copies it (pause or delete them first). Its executions and links stay in the log, and its paused or stopped subscriptions stay, unable to resume; the account can become a strategy again.\n\n`DELETE /v1/copy/strategies/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "List subscriptions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions"
+              ],
+              "query": [
+                {
+                  "key": "strategyId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "followerAccountId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Default: `100`."
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "The previous page's `nextCursor`."
+                }
+              ]
+            },
+            "description": "Followers, newest first, with their status, settings, equity, today's profit where the figures allow, and their last execution. Paginated by cursor.\n\n`GET /v1/copy/subscriptions`"
+          },
+          "response": []
+        },
+        {
+          "name": "Subscribe an account to a strategy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"strategyId\": \"{{accountId}}\",\n  \"followerAccountId\": \"{{accountId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions"
+              ],
+              "query": []
+            },
+            "description": "The follower copies the strategy's master from now on, with its own settings; every setting has a default. Same workspace, hedging accounts only, and an account cannot be a master and a follower at once. Counts against the plan's followers when it starts `active`. A member confirms it is them (step-up). While copy trading is paused on this server (`GET /v1/copy/status`), this answers 503 `COPY_TRADING_PAUSED`.\n\n`POST /v1/copy/subscriptions`"
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch a subscription",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions/{{subscriptionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions",
+                "{{subscriptionId}}"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/copy/subscriptions/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Change a subscription's settings or status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions/{{subscriptionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions",
+                "{{subscriptionId}}"
+              ],
+              "query": []
+            },
+            "description": "`settings` is merged into what is there: objects key by key, lists and `symbols.map` replaced. `status` is `active`, `paused` or `close_only`; a stopped subscription is brought back with POST …/reset. Changing sizing, limits, reverse or risk limits, or resuming, asks a member to confirm it is them (step-up); pausing and close_only never do. Moving into `active` or `close_only` counts against the plan's followers. Moving into `active` is refused while copy trading is paused on this server (503 `COPY_TRADING_PAUSED`, `GET /v1/copy/status`); settings, pausing and close_only still work.\n\n`PATCH /v1/copy/subscriptions/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete a subscription",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions/{{subscriptionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions",
+                "{{subscriptionId}}"
+              ],
+              "query": [
+                {
+                  "key": "closePositions",
+                  "value": "true",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "`closePositions` is required.\n\n- `true`: the subscription stops at once (`stopped`, `stopReason` `deleted`, `deleting` true) and every position it holds on the follower is closed, by ticket — including one whose copied open is still in flight, once it fills. The closes are recorded before any is sent, so they go even if this request is cut off, and a follower that is offline gets them when it is back. The subscription is removed once they are all closed: 200 with `deleted` true when that happens within this request, otherwise 202 with what is still `pending`. A close the broker refuses (`failed`) keeps the subscription until it is closed: delete again to retry, or with `false` to keep the rest.\n- `false`: the subscription is removed now, and its links with it: the positions stay open on the follower as the account's own, no longer copied, closed or corrected by copy trading (`released` counts them).\n\nEither way the executions log is kept, with `subscriptionId` null.\n\n`DELETE /v1/copy/subscriptions/{id}`"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset a stopped subscription",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions/{{subscriptionId}}/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions",
+                "{{subscriptionId}}",
+                "reset"
+              ],
+              "query": []
+            },
+            "description": "Back to `active`, with every risk period measured afresh from the next figures read. Counts against the plan's followers, needs a plan with copy trading, and asks a member to confirm it is them (step-up). A stop-out's closes still pending keep going. While copy trading is paused on this server (`GET /v1/copy/status`), this answers 503 `COPY_TRADING_PAUSED`.\n\n`POST /v1/copy/subscriptions/{id}/reset`"
+          },
+          "response": []
+        },
+        {
+          "name": "List a subscription's links",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/subscriptions/{{subscriptionId}}/links",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "subscriptions",
+                "{{subscriptionId}}",
+                "links"
+              ],
+              "query": [
+                {
+                  "key": "state",
+                  "value": "open",
+                  "disabled": true,
+                  "description": "Default: `\"open\"`."
+                }
+              ]
+            },
+            "description": "Which follower position copies which master position. Closes, partial closes and the drift check go through these, never by symbol. Open links only, or with `state=all` those closed in the last 30 days too.\n\n`GET /v1/copy/subscriptions/{id}/links`"
+          },
+          "response": []
+        },
+        {
+          "name": "List copy executions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/copy/executions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "copy",
+                "executions"
+              ],
+              "query": [
+                {
+                  "key": "strategyId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "subscriptionId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "followerAccountId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "executed",
+                  "disabled": true
+                },
+                {
+                  "key": "reason",
+                  "value": "too_late",
+                  "disabled": true
+                },
+                {
+                  "key": "since",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Only executions created at or after this moment."
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Default: `50`."
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": true,
+                  "description": "The previous page's `nextCursor`."
+                }
+              ]
+            },
+            "description": "The copy-trading log: what each master change (and each drift correction or stop-out close) did on each follower, newest first — executed, skipped, failed or still pending — with the reason, in words, and the follower's order. Paginated by cursor.\n\n`GET /v1/copy/executions`"
           },
           "response": []
         }
@@ -2181,7 +2640,7 @@
               ],
               "query": []
             },
-            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nReturns the key in `key`, **once**. We cannot show a key again after creation, or recover it. A lost key is replaced, not recovered.\n\n`admin`, `keys:manage`, `members:manage` and `billing:manage` cannot be granted here, not even by an admin key. Issue narrow keys: an integration that only reads positions should hold `trading:read` and nothing else.\n\n`POST /v1/api-keys`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nReturns the key in `key`, **once**. We cannot show a key again after creation, or recover it. A lost key is replaced, not recovered.\n\n`admin`, `keys:manage`, `members:manage` and `billing:manage` cannot be granted here, not even by an admin key. Issue narrow keys: an integration that only reads positions should hold `trading:read` and nothing else.\n\nA console session confirms it's you first (`403 STEP_UP_REQUIRED`) only when the key can move money or accounts — `trading:execute`, `trading:reduce` or `accounts:write`. A read-only key, or one that only manages webhooks, is created without one.\n\n`POST /v1/api-keys`"
           },
           "response": []
         },
@@ -2237,7 +2696,7 @@
               ],
               "query": []
             },
-            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nNew scopes replace the old ones and apply from the key's next request. The key itself does not change, so nothing using it needs redeploying. A revoked key cannot be changed.\n\n`PATCH /v1/api-keys/{id}`"
+            "description": "**Needs an admin key** (`fx_admin_…`), made by the workspace owner in the console — or a signed-in owner or admin. Ordinary API keys are refused with `ADMIN_KEY_REQUIRED`.\n\nNew scopes replace the old ones and apply from the key's next request. The key itself does not change, so nothing using it needs redeploying. A revoked key cannot be changed.\n\nA console session confirms it's you first only when the change widens the key to a scope that can move money or accounts (`trading:execute`, `trading:reduce`, `accounts:write`) it did not already hold, or changes the limits on a key that already has some. Narrowing scopes, renaming, or adding limits to a key that had none, never asks.\n\n`PATCH /v1/api-keys/{id}`"
           },
           "response": []
         },
@@ -2413,7 +2872,12 @@
       "type": "string"
     },
     {
-      "key": "eventId",
+      "key": "strategyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "subscriptionId",
       "value": "",
       "type": "string"
     }
