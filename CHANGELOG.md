@@ -3,6 +3,13 @@
 Notable changes to the integrations in this repository. The Postman collection is generated from
 the live API reference (`node postman/generate.mjs`), so it follows the API.
 
+## 2026-10-20
+
+- **Postman:** *Place a market order* says to resend after `503 SEND_FAILED` only when `retryable`
+  is `true` (it is `false` when the order was taken from the request before it could go, so look at
+  the order first). *Reset a stopped subscription* says a subscription that was paused when it
+  stopped goes back to paused, not active.
+
 ## 2026-10-16
 
 - **Postman: copy trading.** A new *Copy trading* folder (14 requests) covers `/v1/copy`: whether
