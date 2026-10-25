@@ -3,6 +3,12 @@
 Notable changes to the integrations in this repository. The Postman collection is generated from
 the live API reference (`node postman/generate.mjs`), so it follows the API.
 
+## 2026-10-23
+
+- **Postman:** *Place a market order* documents `422 NO_PRICE`: the broker had no current price
+  for the symbol (market closed, or not offered by this broker), so nothing was sent. Retry once it
+  is quoting; the same `Idempotency-Key` may be reused.
+
 ## 2026-10-20
 
 - **Postman:** *Place a market order* says to resend after `503 SEND_FAILED` only when `retryable`
