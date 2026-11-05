@@ -320,7 +320,7 @@
               ],
               "query": []
             },
-            "description": "Starts connecting the account and returns **202** immediately — the broker login is still in progress. Poll `pollUrl` until `state` is `ready`.\n\nCalling this for an account that is already online is harmless and returns `alreadyRunning: true`, so a client that is unsure can simply call it.\n\nReturns 409 when the account needs a human first (a wrong password, 2FA, a certificate, trading disabled at the broker). Retrying will not fix those, and repeated failed logins are how a broker locks an account.\n\n`POST /v1/accounts/{id}/warm`"
+            "description": "Starts connecting the account and returns **202** immediately — the broker login is still in progress. Poll `pollUrl` until `state` is `ready`.\n\nCalling this for an account that is already online is harmless and returns `alreadyRunning: true`, so a client that is unsure can simply call it.\n\nReturns 409 when the account needs a human first (a wrong password, 2FA, a certificate, trading disabled at the broker). Retrying will not fix those, and repeated failed logins are how a broker locks an account.\n\nReturns 402 `QUOTA_EXCEEDED` when the workspace has no plan (a trial that ended): choose one in Billing.\n\nReturns 429 `RESTART_TOO_SOON` (with `retry-after`) when the account's terminal has already been started 3 times in the last 10 minutes, counting restarts and starts made for orders.\n\n`POST /v1/accounts/{id}/warm`"
           },
           "response": []
         },
@@ -399,7 +399,7 @@
               ],
               "query": []
             },
-            "description": "For an account that is online but misbehaving — `degraded`, stale quotes, a stuck sync. Returns **202**; poll `pollUrl` until `state` is `ready`. Refused with 409 while an order is in flight, for the same reason as taking it offline.\n\n`POST /v1/accounts/{id}/restart`"
+            "description": "For an account that is online but misbehaving — `degraded`, stale quotes, a stuck sync. Returns **202**; poll `pollUrl` until `state` is `ready`. Refused with 409 while an order is in flight, for the same reason as taking it offline. Returns 402 `QUOTA_EXCEEDED` when the workspace has no plan.\n\nReturns 429 `RESTART_TOO_SOON` (with `retry-after`) when the account's terminal has already been started 3 times in the last 10 minutes; the account is left as it is.\n\n`POST /v1/accounts/{id}/restart`"
           },
           "response": []
         },
@@ -1291,6 +1291,88 @@
             "description": "Only while nothing has been sent. Once orders are going out there is no cancelling them — `cancelled` would claim nothing was sent, and that is exactly the promise we can no longer make.\n\n`POST /v1/execution-waves/{id}/cancel`"
           },
           "response": []
+        },
+        {
+          "name": "Retry the accounts a multi-account order did not reach",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Postman fills in a fresh UUID on every send. Re-sending the same key (with the same body) returns the first answer instead of placing a second order; a new key means a new order. To retry safely, replace `{{$guid}}` with a fixed value."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountIds\": [\n    \"{{accountId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/execution-waves/{{waveId}}/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "execution-waves",
+                "{{waveId}}",
+                "retry"
+              ],
+              "query": []
+            },
+            "description": "Places a new multi-account order for the accounts of this one that were `skipped` (never sent: not online in time, trading switched off, no price). Same market, side, per-account volumes, stops and comment. Add `rejected` to `include` to retry the accounts the broker refused too. A `cancelled` or `abandoned` order sent nothing, so every account is retried.\n\nOnly once the order has ended (`settled`, `cancelled` or `abandoned`); before that, **409** `WAVE_NOT_ENDED`. **409** `NOTHING_TO_RETRY` when no account matches. An `unresolved` account is never retried: it may have executed.\n\nThe new order is checked like any new one (plan, accounts, the key's limits) and is linked both ways: its `retryOf` is this order, and this order's `retriedBy` lists it. **An `Idempotency-Key` is required**; the same key again returns the same new order (200, `idempotent-replay: true`).\n\n`POST /v1/execution-waves/{id}/retry`"
+          },
+          "response": []
+        },
+        {
+          "name": "Close the positions a multi-account order opened",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Postman fills in a fresh UUID on every send. Re-sending the same key (with the same body) returns the first answer instead of placing a second order; a new key means a new order. To retry safely, replace `{{$guid}}` with a fixed value."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountIds\": [\n    \"{{accountId}}\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/execution-waves/{{waveId}}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "execution-waves",
+                "{{waveId}}",
+                "close"
+              ],
+              "query": []
+            },
+            "description": "Closes, on every account at once, the position each `filled` account's order opened, and answers with a result for each account. Each close is an ordinary close order, placed exactly as `POST /v1/accounts/{id}/positions/{positionId}/close` places one: never refused for the plan's allowance, refused when trading is switched off. Send `accountIds` to close only some accounts.\n\n**An `Idempotency-Key` is required.** A repeated close would not close twice; it would open opposing positions. Each account's close is keyed from yours, so the same key again answers with the first result (`idempotent-replay: true`) and never sends a second close.\n\nPer account, `result` is `closed`, `not_found` (already closed), `rejected` (the broker refused), `unresolved` (sent, result being confirmed: **do not resend**; poll `closeOrderId`) or `skipped` (nothing sent; `detail` says why). Only once the order has ended; before that, **409** `WAVE_NOT_ENDED`.\n\n`POST /v1/execution-waves/{id}/close`"
+          },
+          "response": []
         }
       ]
     },
@@ -1315,7 +1397,7 @@
               ],
               "query": []
             },
-            "description": "`paused` true while copy trading is paused on this server (before scheduled maintenance): strategies and subscriptions can be read, paused and deleted, but nothing that starts copying is taken (503 `COPY_TRADING_PAUSED`), nothing is copied, and no follower is billed. `message` says so in a sentence, or is null.\n\n`GET /v1/copy/status`"
+            "description": "`paused` true while copy trading is paused (it is coming soon): strategies and subscriptions can be read, paused and deleted, but nothing that starts copying is taken (503 `COPY_TRADING_PAUSED`), nothing is copied, and no follower is billed. `message` says so in a sentence, or is null.\n\n`GET /v1/copy/status`"
           },
           "response": []
         },
