@@ -3,6 +3,15 @@
 Notable changes to the integrations in this repository. The Postman collection is generated from
 the live API reference (`node postman/generate.mjs`), so it follows the API.
 
+## 2026-11-24
+
+- **Postman:** *Bring an account online* and *Restart the connection* document `503` with a
+  `Retry-After` header (seconds) when every MT5 terminal is busy: temporary, so wait that long and
+  call again.
+- **Postman:** a **MarketLabs** folder, with a `reportId` variable for research reports; and the
+  descriptions brought up to date with the API reference (for example, *Modify a position* keeps
+  any stop loss or take profit you leave out, and `null` removes one).
+
 ## 2026-10-23
 
 - **Postman:** *Place a market order* documents `422 NO_PRICE`: the broker had no current price

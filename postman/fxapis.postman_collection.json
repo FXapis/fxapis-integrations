@@ -320,7 +320,7 @@
               ],
               "query": []
             },
-            "description": "Starts connecting the account and returns **202** immediately — the broker login is still in progress. Poll `pollUrl` until `state` is `ready`.\n\nCalling this for an account that is already online is harmless and returns `alreadyRunning: true`, so a client that is unsure can simply call it.\n\nReturns 409 when the account needs a human first (a wrong password, 2FA, a certificate, trading disabled at the broker). Retrying will not fix those, and repeated failed logins are how a broker locks an account.\n\nReturns 402 `QUOTA_EXCEEDED` when the workspace has no plan (a trial that ended): choose one in Billing.\n\nReturns 429 `RESTART_TOO_SOON` (with `retry-after`) when the account's terminal has already been started 3 times in the last 10 minutes, counting restarts and starts made for orders.\n\n`POST /v1/accounts/{id}/warm`"
+            "description": "Starts connecting the account and returns **202** immediately — the broker login is still in progress. Poll `pollUrl` until `state` is `ready`.\n\nCalling this for an account that is already online is harmless and returns `alreadyRunning: true`, so a client that is unsure can simply call it.\n\nReturns 409 when the account needs a human first (a wrong password, 2FA, a certificate, trading disabled at the broker). Retrying will not fix those, and repeated failed logins are how a broker locks an account.\n\nReturns 402 `QUOTA_EXCEEDED` when the workspace has no plan (a trial that ended): choose one in Billing.\n\nReturns 429 `RESTART_TOO_SOON` (with `retry-after`) when the account's terminal has already been started 3 times in the last 10 minutes, counting restarts and starts made for orders.\n\nReturns 503 `SCHEDULER_FAILED` with `retry-after` (in seconds) when every MT5 terminal is busy: it is temporary, so wait that long and call again.\n\n`POST /v1/accounts/{id}/warm`"
           },
           "response": []
         },
@@ -399,7 +399,7 @@
               ],
               "query": []
             },
-            "description": "For an account that is online but misbehaving — `degraded`, stale quotes, a stuck sync. Returns **202**; poll `pollUrl` until `state` is `ready`. Refused with 409 while an order is in flight, for the same reason as taking it offline. Returns 402 `QUOTA_EXCEEDED` when the workspace has no plan.\n\nReturns 429 `RESTART_TOO_SOON` (with `retry-after`) when the account's terminal has already been started 3 times in the last 10 minutes; the account is left as it is.\n\n`POST /v1/accounts/{id}/restart`"
+            "description": "For an account that is online but misbehaving — `degraded`, stale quotes, a stuck sync. Returns **202**; poll `pollUrl` until `state` is `ready`. Refused with 409 while an order is in flight, for the same reason as taking it offline. Returns 402 `QUOTA_EXCEEDED` when the workspace has no plan.\n\nReturns 429 `RESTART_TOO_SOON` (with `retry-after`) when the account's terminal has already been started 3 times in the last 10 minutes; the account is left as it is.\n\nReturns 503 `RESTART_FAILED` with `retry-after` (in seconds) when every MT5 terminal is busy: it is temporary, so wait that long and call again.\n\n`POST /v1/accounts/{id}/restart`"
           },
           "response": []
         },
@@ -745,7 +745,7 @@
               ],
               "query": []
             },
-            "description": "**Send `null` to remove a level.** Omitting the field leaves it unchanged — an omitted field silently clearing a stop is how protection disappears without anybody choosing it.\n\nRecorded in the order history with intent `modify`, because widening a stop changes what the account risks and belongs beside the trade it protects.\n\n`POST /v1/accounts/{id}/positions/{positionId}/modify`"
+            "description": "**Send `null` to remove a level.** Omitting the field leaves it unchanged — an omitted field silently clearing a stop is how protection disappears without anybody choosing it.\n\nSend at least one level. A level is a price above zero written as a decimal string with a digit before the point, such as `\"1.0890\"`; anything else (a zero, an empty string, a negative number, a word, `\".5\"`) is refused with `400 INVALID_REQUEST`: removing a level is `null`. An omitted level is read from the account first; if it does not answer, the change is refused with `503 MT5_UNAVAILABLE` and nothing is sent.\n\nRecorded in the order history with intent `modify`, because widening a stop changes what the account risks and belongs beside the trade it protects.\n\n`POST /v1/accounts/{id}/positions/{positionId}/modify`"
           },
           "response": []
         },
@@ -2902,6 +2902,522 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "MarketLabs",
+      "item": [
+        {
+          "name": "Markets with daily official data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/markets`"
+          },
+          "response": []
+        },
+        {
+          "name": "Currencies and pairs a watchlist can hold",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/pairs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "pairs"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/pairs`"
+          },
+          "response": []
+        },
+        {
+          "name": "This workspace's watchlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/watchlist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "watchlist"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/watchlist`"
+          },
+          "response": []
+        },
+        {
+          "name": "Today for you: your positions, events and research for the next hours",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/today",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "today"
+              ],
+              "query": [
+                {
+                  "key": "hours",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "timeZone",
+                  "value": "",
+                  "disabled": true,
+                  "description": "IANA time zone, e.g. Europe/London. Times stay in UTC."
+                }
+              ]
+            },
+            "description": "Events in the next `hours` (default 48) for your held and watched currencies, your open positions and pending orders against them (needs `trading:read` as well), each pair's research lean, and what changed in the last 24 hours. Research, not trading advice.\n\n`GET /v1/marketlabs/today`"
+          },
+          "response": []
+        },
+        {
+          "name": "Stored daily candles for a market, replayed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets/{{symbol}}/replay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets",
+                "{{symbol}}",
+                "replay"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/markets/{symbol}/replay`"
+          },
+          "response": []
+        },
+        {
+          "name": "Daily official candles for a market",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets/{{symbol}}/candles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets",
+                "{{symbol}}",
+                "candles"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/markets/{symbol}/candles`"
+          },
+          "response": []
+        },
+        {
+          "name": "A market's reference rate, volatility, positioning and events over time",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets/{{symbol}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets",
+                "{{symbol}}",
+                "series"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/markets/{symbol}/series`"
+          },
+          "response": []
+        },
+        {
+          "name": "Relative currency strength",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/strength",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "strength"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/strength`"
+          },
+          "response": []
+        },
+        {
+          "name": "Correlation between pairs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/correlation",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "correlation"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/correlation`"
+          },
+          "response": []
+        },
+        {
+          "name": "Recent headlines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/news",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "news"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/news`"
+          },
+          "response": []
+        },
+        {
+          "name": "Freshness of each data source",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/sources",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "sources"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/sources`"
+          },
+          "response": []
+        },
+        {
+          "name": "Official economic calendar with figures",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "currencies",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Comma-separated, e.g. USD,EUR."
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "kind",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Comma-separated: release, rate_decision, survey, earnings."
+                },
+                {
+                  "key": "impact",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Comma-separated: high, medium, low."
+                }
+              ]
+            },
+            "description": "`GET /v1/marketlabs/events`"
+          },
+          "response": []
+        },
+        {
+          "name": "Latest shared intelligence for a market",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets/{{symbol}}/intelligence",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets",
+                "{{symbol}}",
+                "intelligence"
+              ],
+              "query": []
+            },
+            "description": "A cached snapshot shared by every workspace.\n\n`GET /v1/marketlabs/markets/{symbol}/intelligence`"
+          },
+          "response": []
+        },
+        {
+          "name": "Events attached to the latest shared snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets/{{symbol}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets",
+                "{{symbol}}",
+                "events"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/markets/{symbol}/events`"
+          },
+          "response": []
+        },
+        {
+          "name": "This workspace's MarketLabs settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "settings"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/settings`"
+          },
+          "response": []
+        },
+        {
+          "name": "Change this workspace's watchlist and settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "settings"
+              ],
+              "query": []
+            },
+            "description": "`PATCH /v1/marketlabs/settings`"
+          },
+          "response": []
+        },
+        {
+          "name": "Today's research for a market",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/markets/{{symbol}}/research",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "markets",
+                "{{symbol}}",
+                "research"
+              ],
+              "query": []
+            },
+            "description": "Research, not trading advice: it places no trade. Confidence is scored against the outcome after the fact.\n\n`GET /v1/marketlabs/markets/{symbol}/research`"
+          },
+          "response": []
+        },
+        {
+          "name": "Past research reports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/research",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "research"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/research`"
+          },
+          "response": []
+        },
+        {
+          "name": "Research hit rate, per pair and horizon",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/research/track-record",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "research",
+                "track-record"
+              ],
+              "query": []
+            },
+            "description": "Empty until a pair and horizon has reached the minimum number of scored calls.\n\n`GET /v1/marketlabs/research/track-record`"
+          },
+          "response": []
+        },
+        {
+          "name": "Research hit rate, by confidence level",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/research/calibration",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "research",
+                "calibration"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/research/calibration`"
+          },
+          "response": []
+        },
+        {
+          "name": "One research report, in full",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/marketlabs/research/{{reportId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "marketlabs",
+                "research",
+                "{{reportId}}"
+              ],
+              "query": []
+            },
+            "description": "`GET /v1/marketlabs/research/{id}`"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "auth": {
@@ -3007,6 +3523,11 @@
     },
     {
       "key": "subscriptionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reportId",
       "value": "",
       "type": "string"
     }

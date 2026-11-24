@@ -42,6 +42,7 @@ const ID_VARIABLE_BY_SEGMENT = {
   events: "eventId",
   strategies: "strategyId",
   subscriptions: "subscriptionId",
+  research: "reportId",
 };
 
 const IDEMPOTENCY_DESCRIPTION =
@@ -323,6 +324,7 @@ const variable = [
   { key: "eventId", value: "", type: "string" },
   { key: "strategyId", value: "", type: "string" },
   { key: "subscriptionId", value: "", type: "string" },
+  { key: "reportId", value: "", type: "string" },
 ];
 
 const collection = {
